@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -61,11 +62,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   //save notes
   void saveNotes() async {
-    await Supabase.instance.client
-        .from('notes')
-        .insert({'body': noteController.text});
+    if (noteController.text.isNotEmpty) {
+      await Supabase.instance.client
+          .from('notes')
+          .insert({'body': noteController.text});
+    }
   }
 
+  final notesStream =
+      Supabase.instance.client.from("notes").stream(primaryKey: ['id']);
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,24 +92,39 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.black,
         ),
       ),
-      body: ListView.builder(
-        itemCount: 0,
-        itemBuilder: (context, index) => Card(
-          color: Colors.grey[900],
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: ListTile(
-            title: const Text(
-              " notes[index]",
-              style: TextStyle(color: Colors.white),
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.redAccent),
-              onPressed: () {
-                //
-              },
-            ),
-          ),
-        ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: notesStream,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          final notes = snapshot.data!;
+          return ListView.builder(
+              itemCount: notes.length,
+              itemBuilder: (context, index) {
+                final note = notes[index];
+                final noteText = note['body'];
+                return Card(
+                  color: Colors.grey[900],
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  child: ListTile(
+                    title: Text(
+                      noteText,
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      onPressed: () {
+                        //
+                      },
+                    ),
+                  ),
+                );
+              });
+        },
       ),
     );
   }
