@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -10,7 +9,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  TextEditingController noteController = TextEditingController();
+  TextEditingController addNotesController = TextEditingController();
+  TextEditingController editingNotesController = TextEditingController();
 
   void addNewNote() {
     showDialog(
@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(color: Colors.white),
         ),
         content: TextField(
-          controller: noteController,
+          controller: addNotesController,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
             hintText: "Enter your note",
@@ -36,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              noteController.clear();
+              addNotesController.clear();
             },
             child: const Text(
               "Cancel",
@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               saveNotes();
               Navigator.pop(context);
-              noteController.clear();
+              addNotesController.clear();
             },
             child: const Text(
               "Save",
@@ -60,12 +60,55 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  //edit
+  void editWidget(notesID, noteText) {
+    editingNotesController.text = noteText;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: TextField(
+          controller: editingNotesController,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                editingNotesController.clear();
+              },
+              child: Text("Cancel")),
+          TextButton(
+              onPressed: () {
+                updateNotes(notesID);
+                Navigator.pop(context);
+                editingNotesController.clear();
+              },
+              child: Text("Update"))
+        ],
+      ),
+    );
+  }
+
   //save notes
   void saveNotes() async {
-    if (noteController.text.isNotEmpty) {
+    if (addNotesController.text.isNotEmpty) {
       await Supabase.instance.client
           .from('notes')
-          .insert({'body': noteController.text});
+          .insert({'body': addNotesController.text});
+    }
+  }
+
+  //remove notes
+  void removeNotes(int id) async {
+    await Supabase.instance.client.from('notes').delete().eq('id', id);
+  }
+
+  //update notes
+  void updateNotes(int noteId) async {
+    if (editingNotesController.text.isNotEmpty) {
+      await Supabase.instance.client.from('notes').update(
+              {'body': editingNotesController.text}) // The new data to update
+          .eq('id', noteId); // The specific note to update based on its id
     }
   }
 
@@ -97,33 +140,59 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: Colors.white,
+              ),
             );
           }
           final notes = snapshot.data!;
+
+          if (notes.isEmpty) {
+            return Center(
+              child: Text(
+                "List is Empty",
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+            );
+          }
           return ListView.builder(
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final note = notes[index];
-                final noteText = note['body'];
-                return Card(
-                  color: Colors.grey[900],
-                  margin:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  child: ListTile(
-                    title: Text(
-                      noteText,
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () {
-                        //
-                      },
-                    ),
+            itemCount: notes.length,
+            addAutomaticKeepAlives: true,
+            shrinkWrap: true,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              final noteText = note['body'];
+              final noteId = note['id'];
+              return Card(
+                color: Colors.grey[900],
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                child: ListTile(
+                  title: Text(
+                    noteText,
+                    style: TextStyle(color: Colors.white),
                   ),
-                );
-              });
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () {
+                          removeNotes(noteId); // Delete action
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.red),
+                        onPressed: () {
+                          editWidget(noteId, noteText);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
         },
       ),
     );
