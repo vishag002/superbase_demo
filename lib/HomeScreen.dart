@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_project/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -59,6 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  ///
 
   //edit
   void editWidget(notesID, noteText) {
@@ -120,12 +123,21 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text(
-          "Notes",
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text("Notes", style: TextStyle(color: Colors.white)),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.person_2)),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.white,

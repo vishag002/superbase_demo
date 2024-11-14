@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_project/auth/auth_service.dart';
+import 'package:supabase_project/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +20,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authService.SignInWithEmailAndPassword(email, password);
-    } catch (e) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
   }
 
   @override
@@ -35,8 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           TextField(
             controller: passwordController,
+            obscureText: true,
           ),
-          ElevatedButton(onPressed: login, child: Text("login"))
+          ElevatedButton(onPressed: login, child: Text("login")),
+          Center(
+              child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SignUpScreen(),
+                        ));
+                  },
+                  child: Text("Dont have an account ? sign up")))
         ],
       ),
     );
