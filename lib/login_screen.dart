@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = passwordController.text;
 
     try {
+      // Sign in with email and password
       await _authService.SignInWithEmailAndPassword(email, password);
     } catch (e) {
       if (mounted) {

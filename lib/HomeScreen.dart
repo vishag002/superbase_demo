@@ -13,6 +13,25 @@ class _HomeScreenState extends State<HomeScreen> {
   TextEditingController addNotesController = TextEditingController();
   TextEditingController editingNotesController = TextEditingController();
 
+  // Initialize a stream for notes
+  late final Stream<List<Map<String, dynamic>>> notesStream;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize the notes stream to fetch notes only for the authenticated user
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (userId != null) {
+      notesStream = Supabase.instance.client.from('notes').stream(
+          primaryKey: ['id']).eq('user_id', userId); // Filter by the user_id
+    } else {
+      notesStream =
+          Stream.empty(); // If no user is logged in, use an empty stream
+    }
+  }
+
   void addNewNote() {
     showDialog(
       context: context,
@@ -61,10 +80,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  ///
+  // Save notes
+  Future<void> saveNotes() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
-  //edit
-  void editWidget(notesID, noteText) {
+    if (userId == null) {
+      throw Exception("User is not authenticated.");
+    }
+
+    // Ensure that the user enters a note body before saving
+    if (addNotesController.text.isNotEmpty) {
+      await Supabase.instance.client.from('notes').insert({
+        'body': addNotesController.text, // The note content
+        'user_id': userId, // Add the logged-in user's ID
+      });
+    }
+  }
+
+  // Remove note
+  void removeNotes(int id) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (userId == null) {
+      throw Exception("User is not authenticated.");
+    }
+
+    await Supabase.instance.client
+        .from('notes')
+        .delete()
+        .eq('id', id) // Note ID to delete
+        .eq('user_id', userId); // Ensure the note belongs to the logged-in user
+  }
+
+  // Edit note
+  void editWidget(int noteID, String noteText) {
     editingNotesController.text = noteText;
 
     showDialog(
@@ -79,44 +128,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pop(context);
                 editingNotesController.clear();
               },
-              child: Text("Cancel")),
+              child: const Text("Cancel")),
           TextButton(
               onPressed: () {
-                updateNotes(notesID);
+                updateNotes(noteID);
                 Navigator.pop(context);
                 editingNotesController.clear();
               },
-              child: Text("Update"))
+              child: const Text("Update"))
         ],
       ),
     );
   }
 
-  //save notes
-  void saveNotes() async {
-    if (addNotesController.text.isNotEmpty) {
+  // Update note
+  void updateNotes(int noteId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (userId == null) {
+      throw Exception("User is not authenticated.");
+    }
+
+    if (editingNotesController.text.isNotEmpty) {
       await Supabase.instance.client
           .from('notes')
-          .insert({'body': addNotesController.text});
+          .update({
+            'body': editingNotesController.text, // The new content for the note
+          })
+          .eq('id', noteId) // The specific note to update based on its ID
+          .eq('user_id',
+              userId); // Ensure the note belongs to the logged-in user
     }
   }
 
-  //remove notes
-  void removeNotes(int id) async {
-    await Supabase.instance.client.from('notes').delete().eq('id', id);
-  }
-
-  //update notes
-  void updateNotes(int noteId) async {
-    if (editingNotesController.text.isNotEmpty) {
-      await Supabase.instance.client.from('notes').update(
-              {'body': editingNotesController.text}) // The new data to update
-          .eq('id', noteId); // The specific note to update based on its id
-    }
-  }
-
-  final notesStream =
-      Supabase.instance.client.from("notes").stream(primaryKey: ['id']);
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,15 +172,16 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfileScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.person_2)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.person_2),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -151,22 +196,24 @@ class _HomeScreenState extends State<HomeScreen> {
         stream: notesStream,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return Center(
+            return const Center(
               child: CircularProgressIndicator(
                 color: Colors.white,
               ),
             );
           }
+
           final notes = snapshot.data!;
 
           if (notes.isEmpty) {
-            return Center(
+            return const Center(
               child: Text(
                 "List is Empty",
                 style: TextStyle(color: Colors.white, fontSize: 18),
               ),
             );
           }
+
           return ListView.builder(
             itemCount: notes.length,
             addAutomaticKeepAlives: true,
@@ -175,13 +222,14 @@ class _HomeScreenState extends State<HomeScreen> {
               final note = notes[index];
               final noteText = note['body'];
               final noteId = note['id'];
+
               return Card(
                 color: Colors.grey[900],
                 margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 child: ListTile(
                   title: Text(
                     noteText,
-                    style: TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.white),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
